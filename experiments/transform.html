@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>Transform test</title>
+    <style>
+        html { overflow: hidden }
+    </style>
+</head>
+<body>
+
+
+<script type="text/javascript" charset="utf-8">
+
+var d = document.createElement("div")
+d.style.position = "absolute"
+d.style.top = "100px"
+d.style.left = "100px"
+
+d.style.width = "100px"
+d.style.height = "100px"
+d.style.background = "blue"
+
+// d.style.zoom = 1.2
+
+var v = document.createElement("div")
+v.style.position = "absolute"
+v.style.top = "0px"
+v.style.left = "0px"
+v.style.pointerEvents="none"
+v.style.width = "10px"
+v.style.height = "10px"
+v.style.background = "yellow"
+
+document.body.innerHTML=""
+document.body.appendChild(d)
+
+d.appendChild(v)
+
+d.style.transform="scale(1, 2) translate(40px) rotate(90deg)"
+d.style.transform="scale(2,2)  rotate(0deg)"
+d.style.transformOrigin="0px  0px 0px"
+
+ 
+
+
+function t(x,y) {
+    v.style.width = "0px";
+    v.style.height = "0px";
+    v.style.left = x + "px";
+    v.style.top = y + "px";
+    r=v.getBoundingClientRect();
+    return[r.x,r.y]
+}
+ 
+ 
+document.body.style.transform=`
+matrix3d(
+0.6573642754298298,	0,	0,	-0.0006563902769543491,
+0,	0.8179046328449224,	0,	-0.00105869399508766,
+0,	0,	1,	0,
+10,	20,	0,	1
+)
+
+ `
+
+ d.style.transform=`
+matrix3d(
+0.6573642754298298,	1,	0,	-0.0006563902769543491,
+-1,	0.8179046328449224,	0,	-0.00105869399508766,
+10,	10,	2,	0,
+0,	0,	0,	1
+)
+ `
+
+// general transforms from element coordinates x to screen coordinates u have the form
+// | m1[0] m2[0] t[0] |   | x |       | u |
+// | m1[1] m2[1] t[1] | . | y |  == k | v |
+// | h[0]  h[1]  1    |   | 1 |       | 1 |
+// this function finds the coeeficients of the matrix using positions of four points
+//  
+function transform(clientPos, elPos) {
+    function solve(l1,l2,r) {
+        var det = l1[1]*l2[0] - l1[0]*l2[1];
+        return [
+            (-l2[1]*r[0] + l2[0]*r[1])/det,
+            (+l1[1]*r[0] - l1[0]*r[1])/det
+        ];
+    }
+    function sub(a, b) { return [a[0]-b[0], a[1]-b[1]] }
+    function add(a, b) { return [a[0]+b[0], a[1]+b[1]] }
+    function mul(a, b) { return [a * b[0], a * b[1]] }
+
+    var a = t(0, 0);
+    var b = t(100, 0);
+    var c = t(0, 100);
+    var d = t(100, 100);
+
+    var h = solve(sub(d, b), sub(d, c), sub(add(b, c), add(d, a)))
+
+    var m1 = mul(1 + h[0], sub(b, a));
+    var m2 = mul(1 + h[1], sub(c, a));
+    
+    if (elPos) {
+        var x = elPos;
+        var k = h[0] * x[0] / 100 + h[1] * x[1] / 100 + 1;
+        var ut = add(mul(x[0], m1), mul(x[1], m2));
+        return  add(mul(1 / k / 100, ut), a);
+    }
+    var u = sub(clientPos, a);
+    var f = solve(sub(m1, mul(h[0], u)), sub(m2, mul(h[1], u)), u);
+    return mul(100, f);
+}
+
+
+
+
+
+window.onmousemove = function(e) {
+    var x = transform([e.clientX, e.clientY]);
+    v.style.width = "10px"
+    v.style.height = "10px"
+    v.style.left = x[0] - 5 + "px"
+    v.style.top = x[1] - 5 + "px";
+    if (e.target == v.parentNode) {
+        console.log(e.offsetX,  Math.round(x[0]), e.offsetY, Math.round(x[1]))
+    }
+}
+
+transform(t(50, 50))
+
+</script>
+
+</body>
+</html>
